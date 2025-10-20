@@ -2,34 +2,19 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/plugins/axios'
+import { useGenreStore } from '@/stores/genre'
 
-const genres = ref([])
+const genreStore = useGenreStore()
 const tvShows = ref([])
 const selectedGenre = ref(null)
 const loading = ref(true)
 const error = ref(null)
-
 const router = useRouter()
 
-// Buscar todos os gêneros de TV
-const fetchGenres = async () => {
+// Buscar programas de TV por gênero
+const fetchTvShows = async (genreId = null) => {
   try {
-    const response = await api.get('genre/tv/list?language=pt-BR')
-    genres.value = response.data.genres
-  } catch (err) {
-    console.error(err)
-    error.value = 'Erro ao carregar os gêneros de TV 😕'
-  } finally {
-    loading.value = false
-  }
-}
-
-// Buscar programas de TV de um gênero específico
-const fetchTvShowsByGenre = async (genreId) => {
-  selectedGenre.value = genreId
-  tvShows.value = []
-  loading.value = true
-  try {
+    loading.value = true
     const response = await api.get('discover/tv', {
       params: {
         with_genres: genreId,
@@ -38,132 +23,97 @@ const fetchTvShowsByGenre = async (genreId) => {
     })
     tvShows.value = response.data.results
   } catch (err) {
-    console.error(err)
-    error.value = 'Erro ao carregar os programas de TV 😕'
+    error.value = 'Erro ao carregar programas de TV.'
   } finally {
     loading.value = false
   }
 }
 
-// Redirecionar para a página de detalhes
-const goToTvDetails = (id) => {
-  router.push({ name: 'TvDetails', params: { tvId: id } })
+// Selecionar gênero
+const selectGenre = (genreId) => {
+  selectedGenre.value = genreId
+  genreStore.setCurrentGenreId(genreId)
+  fetchTvShows(genreId)
 }
 
-onMounted(fetchGenres)
+// Ir para detalhes do programa
+const goToDetails = (id) => {
+  router.push(`/tv/${id}`)
+}
+
+// Ao montar o componente
+onMounted(async () => {
+  await genreStore.getAllGenres('tv') // ✅ lista os gêneros de TV usando a store
+  await fetchTvShows()
+})
 </script>
 
 <template>
-  <div class="tv-view">
-    <h1>📺 Programas de TV</h1>
+  <div class="container">
+    <h2>Programas de TV</h2>
 
-    <div v-if="loading && !genres.length" class="status">Carregando gêneros...</div>
-    <div v-else-if="error" class="status error">{{ error }}</div>
-
-    <!-- Lista de gêneros -->
-    <ul v-else class="genre-list">
-      <li
-        v-for="genre in genres"
+    <div class="genres">
+      <button
+        v-for="genre in genreStore.genres"
         :key="genre.id"
-        class="genre-item"
         :class="{ active: selectedGenre === genre.id }"
-        @click="fetchTvShowsByGenre(genre.id)"
+        @click="selectGenre(genre.id)"
       >
         {{ genre.name }}
-      </li>
-    </ul>
-
-    <!-- Lista de programas -->
-    <div v-if="loading && selectedGenre" class="status">Carregando programas...</div>
-    <div v-else-if="tvShows.length" class="tv-list">
-      <div v-for="show in tvShows" :key="show.id" class="tv-card" @click="goToTvDetails(show.id)">
-        <img
-          :src="show.poster_path ? 'https://image.tmdb.org/t/p/w300' + show.poster_path : 'https://via.placeholder.com/300x450?text=Sem+Imagem'"
-          :alt="show.name"
-        />
-        <h3>{{ show.name }}</h3>
-        <p>⭐ {{ show.vote_average.toFixed(1) }}</p>
-      </div>
+      </button>
     </div>
 
-    <div v-else-if="selectedGenre && !tvShows.length && !loading" class="status">
-      Nenhum programa encontrado para este gênero 😔
+    <div v-if="loading" class="loading">Carregando...</div>
+    <div v-if="error" class="error">{{ error }}</div>
+
+    <div v-if="!loading && !error" class="tv-grid">
+      <div
+        v-for="show in tvShows"
+        :key="show.id"
+        class="tv-card"
+        @click="goToDetails(show.id)"
+      >
+        <img
+          :src="show.poster_path
+            ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
+            : '/src/assets/no-image.jpg'"
+          :alt="show.name"
+        />
+        <div class="info">
+          <h3>{{ show.name }}</h3>
+          <p><strong>Nome original:</strong> {{ show.original_name }}</p>
+          <p><strong>Data de estreia:</strong> {{ new Date(show.first_air_date).toLocaleDateString('pt-BR') }}</p>
+
+          <div class="tags">
+            <span
+              v-for="genreId in show.genre_ids"
+              :key="genreId"
+              class="tag"
+            >
+              {{ genreStore.getGenreName(genreId) }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.tv-view {
-  padding: 2rem;
-  text-align: center;
-  color: #222;
-}
-
-.status {
-  font-size: 1.2rem;
-  margin-top: 2rem;
-}
-
-.error {
-  color: red;
-}
-
-.genre-list {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  list-style: none;
-  padding: 0;
-  margin-top: 2rem;
-}
-
-.genre-item {
-  background-color: #5d6424;
-  border-radius: 1rem;
-  padding: 0.5rem 1.5rem;
-  color: #fff;
-  transition: all 0.2s;
-}
-
-.genre-item:hover {
-  cursor: pointer;
-  background-color: #7d8a2e;
-  box-shadow: 0 0 0.5rem #5d6424;
-}
-
-.genre-item.active {
-  background-color: #a0b03d;
-}
-
-.tv-list {
-  margin-top: 3rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2rem;
-}
-
-.tv-card {
-  width: 180px;
-  text-align: center;
-  transition: transform 0.2s;
-}
-
-.tv-card:hover {
-  transform: scale(1.05);
-  cursor: pointer;
-}
-
-.tv-card img {
-  width: 100%;
-  border-radius: 1rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-}
-
-.tv-card h3 {
-  font-size: 1rem;
-  margin-top: 0.5rem;
-  color: #333;
-}
+.container { padding: 20px; }
+h2 { font-size: 1.8rem; margin-bottom: 20px; }
+.genres { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
+.genres button { background: #e6e6e6; border: none; border-radius: 15px; padding: 8px 14px; cursor: pointer; transition: all 0.2s; }
+.genres button.active { background-color: #4d692c; color: white; }
+.loading { font-weight: bold; margin-top: 20px; }
+.error { color: red; margin-top: 20px; }
+.tv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 25px; }
+.tv-card { background: #fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; transition: transform 0.2s ease; cursor: pointer; }
+.tv-card:hover { transform: scale(1.05); }
+.tv-card img { width: 100%; height: 340px; object-fit: cover; border-bottom: 1px solid #ddd; }
+.info { padding: 10px; }
+.info h3 { font-size: 1.1rem; margin-bottom: 5px; }
+.info p { font-size: 0.9rem; color: #333; margin-bottom: 4px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { background: #6d7b43; color: #fff; border-radius: 8px; padding: 2px 8px; font-size: 0.75rem; }
 </style>
