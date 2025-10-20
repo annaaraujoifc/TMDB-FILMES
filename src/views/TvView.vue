@@ -1,48 +1,56 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import api from '@/plugins/axios';
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '@/plugins/axios'
 
-const genres = ref([]);
-const tvShows = ref([]);
-const selectedGenre = ref(null);
-const loading = ref(true);
-const error = ref(null);
+const genres = ref([])
+const tvShows = ref([])
+const selectedGenre = ref(null)
+const loading = ref(true)
+const error = ref(null)
 
+const router = useRouter()
 
+// Buscar todos os gêneros de TV
 const fetchGenres = async () => {
   try {
-    const response = await api.get('genre/tv/list?language=pt-BR');
-    genres.value = response.data.genres;
+    const response = await api.get('genre/tv/list?language=pt-BR')
+    genres.value = response.data.genres
   } catch (err) {
-    console.error(err);
-    error.value = 'Erro ao carregar os gêneros de TV 😕';
+    console.error(err)
+    error.value = 'Erro ao carregar os gêneros de TV 😕'
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
-// Buscar séries de um gênero específico
+// Buscar programas de TV de um gênero específico
 const fetchTvShowsByGenre = async (genreId) => {
-  selectedGenre.value = genreId;
-  tvShows.value = [];
-  loading.value = true;
+  selectedGenre.value = genreId
+  tvShows.value = []
+  loading.value = true
   try {
     const response = await api.get('discover/tv', {
       params: {
         with_genres: genreId,
         language: 'pt-BR',
       },
-    });
-    tvShows.value = response.data.results;
+    })
+    tvShows.value = response.data.results
   } catch (err) {
-    console.error(err);
-    error.value = 'Erro ao carregar os programas de TV 😕';
+    console.error(err)
+    error.value = 'Erro ao carregar os programas de TV 😕'
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
-onMounted(fetchGenres);
+// Redirecionar para a página de detalhes
+const goToTvDetails = (id) => {
+  router.push({ name: 'TvDetails', params: { tvId: id } })
+}
+
+onMounted(fetchGenres)
 </script>
 
 <template>
@@ -65,15 +73,16 @@ onMounted(fetchGenres);
       </li>
     </ul>
 
-    <!-- Lista de séries -->
-    <div v-if="loading && selectedGenre" class="status">Carregando séries...</div>
+    <!-- Lista de programas -->
+    <div v-if="loading && selectedGenre" class="status">Carregando programas...</div>
     <div v-else-if="tvShows.length" class="tv-list">
-      <div v-for="show in tvShows" :key="show.id" class="tv-card">
+      <div v-for="show in tvShows" :key="show.id" class="tv-card" @click="goToTvDetails(show.id)">
         <img
           :src="show.poster_path ? 'https://image.tmdb.org/t/p/w300' + show.poster_path : 'https://via.placeholder.com/300x450?text=Sem+Imagem'"
           :alt="show.name"
         />
         <h3>{{ show.name }}</h3>
+        <p>⭐ {{ show.vote_average.toFixed(1) }}</p>
       </div>
     </div>
 
@@ -138,6 +147,12 @@ onMounted(fetchGenres);
 .tv-card {
   width: 180px;
   text-align: center;
+  transition: transform 0.2s;
+}
+
+.tv-card:hover {
+  transform: scale(1.05);
+  cursor: pointer;
 }
 
 .tv-card img {
