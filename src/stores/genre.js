@@ -6,7 +6,7 @@ export const useGenreStore = defineStore('genre', () => {
   const state = reactive({
   genres: [],
   currentGenreId: null,
-  
+
 });
 const currentGenreId = computed(() => state.currentGenreId);
 const setCurrentGenreId = (genreId) => {
@@ -14,8 +14,11 @@ const setCurrentGenreId = (genreId) => {
 };
 
   const genres = computed(() => state.genres);
-  const getGenreName = (id) =>
-    state.genres.find((genre) => genre.id === id).name;
+const getGenreName = (id) => {
+  const genre = state.genres.find((g) => g.id === id)
+  return genre ? genre.name : ''
+}
+
 
   const getAllGenres = async (type) => {
     const response = await api.get(`genre/${type}/list?language=pt-BR`);
