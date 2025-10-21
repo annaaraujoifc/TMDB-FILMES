@@ -1,86 +1,61 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import api from '@/plugins/axios'
+import { defineProps, onMounted } from 'vue'
+import { useTvStore } from '@/stores/tv'
 
-const route = useRoute()
-const router = useRouter()
-const tvShow = ref(null)
-const loading = ref(true)
-const error = ref(null)
+const tvStore = useTvStore()
 
-const fetchTvDetails = async () => {
-  try {
-    const response = await api.get(`tv/${route.params.tvId}`, {
-      params: { language: 'pt-BR' },
-    })
-    tvShow.value = response.data
-  } catch (err) {
-    error.value = 'Erro ao carregar detalhes da série.'
-  } finally {
-    loading.value = false
-  }
-}
+const props = defineProps({
+  tvId: {
+    type: Number,
+    required: true,
+  },
+})
 
-onMounted(fetchTvDetails)
+onMounted(async () => {
+  await tvStore.getTvDetail(props.tvId)
+})
 </script>
 
 <template>
-  <div v-if="loading" class="loading">Carregando...</div>
-  <div v-if="error" class="error">{{ error }}</div>
-
-  <div v-if="!loading && tvShow" class="details-container">
-    <button @click="router.back()" class="back-btn">← Voltar</button>
+  <div class="main">
     <div class="content">
       <img
-        :src="`https://image.tmdb.org/t/p/w500${tvShow.poster_path}`"
-        :alt="tvShow.name"
-        class="poster"
+        :src="`https://image.tmdb.org/t/p/w185${tvStore.currentTv.poster_path}`"
+        :alt="tvStore.currentTv.name"
       />
-      <div class="info">
-        <h2>{{ tvShow.name }}</h2>
-        <p><strong>Nome original:</strong> {{ tvShow.original_name }}</p>
-        <p><strong>Primeira exibição:</strong> {{ new Date(tvShow.first_air_date).toLocaleDateString('pt-BR') }}</p>
-        <p><strong>Nota:</strong> {{ tvShow.vote_average.toFixed(1) }}</p>
-        <p><strong>Temporadas:</strong> {{ tvShow.number_of_seasons }}</p>
-        <p><strong>Episódios:</strong> {{ tvShow.number_of_episodes }}</p>
-        <p><strong>Sinopse:</strong> {{ tvShow.overview || 'Sem descrição disponível.' }}</p>
+
+      <div class="details">
+        <h1>Série: {{ tvStore.currentTv.name }}</h1>
+        <p>{{ tvStore.currentTv.tagline }}</p>
+        <p>{{ tvStore.currentTv.overview }}</p>
+        <p>Primeira exibição: {{ tvStore.currentTv.first_air_date }}</p>
+        <p>Avaliação: {{ tvStore.currentTv.vote_average }}</p>
       </div>
     </div>
+  </div>
+
+  <p>Produtoras</p>
+  <div class="companies">
+    <template
+      v-for="company in tvStore.currentTv.production_companies"
+      :key="company.id"
+    >
+      <img
+        v-if="company.logo_path"
+        :src="`https://image.tmdb.org/t/p/w92${company.logo_path}`"
+        :alt="company.name"
+      />
+      <p v-else>{{ company.name }}</p>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.details-container {
-  padding: 20px;
-}
-.content {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-.poster {
-  width: 300px;
-  border-radius: 12px;
-}
-.info {
-  max-width: 600px;
-}
-.back-btn {
-  background: #4d692c;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  margin-bottom: 15px;
-}
-.loading {
-  text-align: center;
-  font-weight: bold;
-}
-.error {
-  color: red;
-  text-align: center;
-}
+  .companies {
+    display: flex;
+    flex-direction: row;
+    column-gap: 3rem;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
 </style>
