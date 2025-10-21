@@ -13,7 +13,7 @@ const tvShows = ref([])
 
 onMounted(async () => {
   isLoading.value = true
-  await genreStore.getAllGenres('tv') // ✅ lista os gêneros de programas de TV
+  await genreStore.getAllGenres('tv')
   isLoading.value = false
 })
 
